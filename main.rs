@@ -27,12 +27,30 @@ static WEBSOCKET_SALT: &'static str = "258EAFA5-E914-47DA-95CA-C5AB0DC85B11";
 #[deriving(Clone)]
 struct WebSocketServer;
 
+trait HandleHTTP {
+    fn handle_http_request(&self, r: &Request, w: &mut ResponseWriter);
+}
+
+impl HandleHTTP for WebSocketServer {
+    fn handle_http_request(&self, r: &Request, w: &mut ResponseWriter) {
+        w.headers.date = Some(time::now_utc());
+        w.headers.server = Some(~"rust-ws/0.0-pre");
+        w.headers.content_type = Some(MediaType {
+            type_: ~"text",
+            subtype: ~"html",
+            parameters: ~[(~"charset", ~"UTF-8")]
+        });
+        w.write(bytes!("<!DOCTYPE html><title>Rust Web Socket Server</title><h1>Rust Web Socket Server</h1>"));
+    }
+}
+
 impl Server for WebSocketServer {
     fn get_config(&self) -> Config {
         Config { bind_address: SocketAddr { ip: Ipv4Addr(127, 0, 0, 1), port: 8001 } }
     }
 
     fn handle_request(&self, r: &Request, w: &mut ResponseWriter) {
+        // TODO allow configuration of endpoint for websocket
         match (&r.method, &r.headers.upgrade){
           // (&Get, &Some(~"websocket"), &Some(~[Token(~"Upgrade")])) => { // FIXME this doesn't work. but client must have the header "Connection: Upgrade"
           (&Get, &Some(~"websocket")) => { // TODO client must have the header "Connection: Upgrade"
@@ -69,71 +87,19 @@ impl Server for WebSocketServer {
                   let sec_websocket_accept = out.to_base64(STANDARD);
                   debug!("sec websocket accept: {}", sec_websocket_accept);
                   w.headers.insert(ExtensionHeader(~"Sec-WebSocket-Accept", sec_websocket_accept));
+
+                  w.headers.date = Some(time::now_utc());
+                  w.headers.server = Some(~"rust-ws/0.0-pre");
                 }
                 (name, val) => {
                   debug!("{}: {}", name, val);
                 }
               }
             }
-
-            return;
           },
           (&_, &Some(_)) => {}, // handle other upgrade - this is rare apparently, but may be used for TLS for example. not sure if browsers actually implement it though.
-          (&_, &None) => {} // TODO regular http server should handle this request
+          (&_, &None) => self.handle_http_request(r, w)
         }
-
-        w.headers.date = Some(time::now_utc());
-        w.headers.content_type = Some(MediaType {
-            type_: ~"text",
-            subtype: ~"html",
-            parameters: ~[(~"charset", ~"UTF-8")]
-        });
-        w.headers.server = Some(~"Rust Thingummy/0.0-pre");
-        w.write(bytes!("<!DOCTYPE html><title>Rust HTTP server</title>"));
-
-        w.write(bytes!("<h1>Request</h1>"));
-        let s = format!("<dl>
-            <dt>Method</dt><dd>{}</dd>
-            <dt>Host</dt><dd>{:?}</dd>
-            <dt>Upgrade</dt><dd>{:?}</dd>
-            <dt>Request URI</dt><dd>{:?}</dd>
-            <dt>HTTP version</dt><dd>{:?}</dd>
-            <dt>Close connection</dt><dd>{}</dd></dl>",
-            r.method,
-            r.headers.host,
-            r.headers.upgrade,
-            r.request_uri,
-            r.version,
-            r.close_connection);
-        w.write(s.as_bytes());
-        w.write(bytes!("<h2>Extension headers</h2>"));
-        w.write(bytes!("<table><thead><tr><th>Name</th><th>Value</th></thead><tbody>"));
-        for header in r.headers.iter() {
-            let line = format!("<tr><td><code>{}</code></td><td><code>{}</code></td></tr>",
-                               header.header_name(),
-                               header.header_value());
-            w.write(line.as_bytes());
-        }
-        w.write(bytes!("</tbody></table>"));
-        w.write(bytes!("<h2>Body</h2><pre>"));
-        w.write(r.body.as_bytes());
-        w.write(bytes!("</pre>"));
-
-        w.write(bytes!("<h1>Response</h1>"));
-        let s = format!("<dl><dt>Status</dt><dd>{}</dd></dl>", w.status);
-        w.write(s.as_bytes());
-        w.write(bytes!("<h2>Headers</h2>"));
-        w.write(bytes!("<table><thead><tr><th>Name</th><th>Value</th></thead><tbody>"));
-        {
-            let h = w.headers.clone();
-            for header in h.iter() {
-                let line = format!("<tr><td><code>{}</code></td><td><code>{}</code></td></tr>",
-                                header.header_name(),
-                                header.header_value());
-                w.write(line.as_bytes());
-            }
-        }
-        w.write(bytes!("</tbody></table>"));
     }
 }
 
