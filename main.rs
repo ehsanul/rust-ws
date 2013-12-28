@@ -1,4 +1,4 @@
-//! A Web Socket Server
+//! A WebSocket Server
 
 #[crate_id = "rust-ws"];
 
@@ -40,7 +40,7 @@ impl HandleHTTP for WebSocketServer {
             subtype: ~"html",
             parameters: ~[(~"charset", ~"UTF-8")]
         });
-        w.write(bytes!("<!DOCTYPE html><title>Rust Web Socket Server</title><h1>Rust Web Socket Server</h1>"));
+        w.write(bytes!("<!DOCTYPE html><title>Rust WebSocket Server</title><h1>Rust WebSocket Server</h1>"));
     }
 }
 
