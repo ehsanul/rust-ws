@@ -27,11 +27,7 @@ static WEBSOCKET_SALT: &'static str = "258EAFA5-E914-47DA-95CA-C5AB0DC85B11";
 #[deriving(Clone)]
 struct WebSocketServer;
 
-trait HandleHTTP {
-    fn handle_http_request(&self, r: &Request, w: &mut ResponseWriter);
-}
-
-impl HandleHTTP for WebSocketServer {
+impl WebSocketServer {
     fn handle_http_request(&self, r: &Request, w: &mut ResponseWriter) {
         w.headers.date = Some(time::now_utc());
         w.headers.server = Some(~"rust-ws/0.0-pre");
@@ -52,7 +48,7 @@ impl Server for WebSocketServer {
     fn handle_request(&self, r: &Request, w: &mut ResponseWriter) {
         // TODO allow configuration of endpoint for websocket
         match (&r.method, &r.headers.upgrade){
-            // (&Get, &Some(~"websocket"), &Some(~[Token(~"Upgrade")])) => { // FIXME this doesn't work. but client must have the header "Connection: Upgrade"
+            // (&Get, &Some(~"websocket"), &Some(~[Token(~"Upgrade")])) => //\{ FIXME this doesn't work. but client must have the header "Connection: Upgrade"
             (&Get, &Some(~"websocket")) => { // TODO client must have the header "Connection: Upgrade"
                 // WebSocket Opening Handshake
                 w.status = SwitchingProtocols;
