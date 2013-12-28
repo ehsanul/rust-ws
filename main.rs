@@ -54,6 +54,7 @@ impl Server for WebSocketServer {
         match (&r.method, &r.headers.upgrade){
             // (&Get, &Some(~"websocket"), &Some(~[Token(~"Upgrade")])) => { // FIXME this doesn't work. but client must have the header "Connection: Upgrade"
             (&Get, &Some(~"websocket")) => { // TODO client must have the header "Connection: Upgrade"
+                // WebSocket Opening Handshake
                 w.status = SwitchingProtocols;
                 w.headers.upgrade = Some(~"websocket");
 
@@ -67,18 +68,22 @@ impl Server for WebSocketServer {
                     match (header.header_name(), header.header_value()) {
                         (~"Sec-Websocket-Key", val) => {
                             //  NOTE from RFC 6455
-                            //  As an example, if the value of the |Sec-WebSocket-Key|
-                            //  header field in the client's handshake were
-                            //  "dGhlIHNhbXBsZSBub25jZQ==", the server would append the
-                            //  string "258EAFA5-E914-47DA-95CA-C5AB0DC85B11" to form the
-                            //  string "dGhlIHNhbXBsZSBub25jZQ==258EAFA5-E914-47DA-95CA-
-                            //  C5AB0DC85B11".  The server would then take the SHA-1 hash
-                            //  of this string, giving the value 0xb3 0x7a 0x4f 0x2c 0xc0
-                            //  0x62 0x4f 0x16 0x90 0xf6 0x46 0x06 0xcf 0x38 0x59 0x45
-                            //  0xb2 0xbe 0xc4 0xea.  This value is then base64-encoded,
-                            //  to give the value "s3pPLMBiTxaQ9kYGzzhZRbK+xOo=", which
-                            //  would be returned in the |Sec-WebSocket-Accept| header
-                            //  field.
+                            // To prove that the handshake was received, the server has to take two
+                            // pieces of information and combine them to form a response.  The first
+                            // piece of information comes from the |Sec-WebSocket-Key| header field
+                            // in the client handshake:
+                            //
+                            //      Sec-WebSocket-Key: dGhlIHNhbXBsZSBub25jZQ==
+                            //
+                            // For this header field, the server has to take the value (as present
+                            // in the header field, e.g., the base64-encoded [RFC4648] version minus
+                            // any leading and trailing whitespace) and concatenate this with the
+                            // Globally Unique Identifier (GUID, [RFC4122]) "258EAFA5-E914-47DA-
+                            // 95CA-C5AB0DC85B11" in string form, which is unlikely to be used by
+                            // network endpoints that do not understand the WebSocket Protocol.  A
+                            // SHA-1 hash (160 bits) [FIPS.180-3], base64-encoded (see Section 4 of
+                            // [RFC4648]), of this concatenation is then returned in the server's
+                            // handshake.
 
                             let mut sh = Sha1::new();
                             let mut out = [0u8, ..20];
