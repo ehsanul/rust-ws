@@ -24,28 +24,10 @@ use http::method::Get;
 
 static WEBSOCKET_SALT: &'static str = "258EAFA5-E914-47DA-95CA-C5AB0DC85B11";
 
-#[deriving(Clone)]
-struct WebSocketServer;
-
-impl WebSocketServer {
-    fn handle_http_request(&self, r: &Request, w: &mut ResponseWriter) {
-        w.headers.date = Some(time::now_utc());
-        w.headers.server = Some(~"rust-ws/0.0-pre");
-        w.headers.content_type = Some(MediaType {
-            type_: ~"text",
-            subtype: ~"html",
-            parameters: ~[(~"charset", ~"UTF-8")]
-        });
-        w.write(bytes!("<!DOCTYPE html><title>Rust WebSocket Server</title><h1>Rust WebSocket Server</h1>"));
-    }
-}
-
-impl Server for WebSocketServer {
-    fn get_config(&self) -> Config {
-        Config { bind_address: SocketAddr { ip: Ipv4Addr(127, 0, 0, 1), port: 8001 } }
-    }
-
-    fn handle_request(&self, r: &Request, w: &mut ResponseWriter) {
+trait WebSocketServer: Server {
+    // need this method since there's no way to express that this trait will
+    // override the handle_request default method for the Server trait
+    fn override_handle_request(&self, r: &Request, w: &mut ResponseWriter) {
         // TODO allow configuration of endpoint for websocket
         match (&r.method, &r.headers.upgrade){
             // (&Get, &Some(~"websocket"), &Some(~[Token(~"Upgrade")])) => //\{ FIXME this doesn't work. but client must have the header "Connection: Upgrade"
@@ -101,8 +83,35 @@ impl Server for WebSocketServer {
             (&_, &_) => self.handle_http_request(r, w)
         }
     }
+
+    fn handle_http_request(&self, r: &Request, w: &mut ResponseWriter) {
+        w.headers.date = Some(time::now_utc());
+        w.headers.server = Some(~"rust-ws/0.0-pre");
+        w.headers.content_type = Some(MediaType {
+            type_: ~"text",
+            subtype: ~"html",
+            parameters: ~[(~"charset", ~"UTF-8")]
+        });
+        w.write(bytes!("<!DOCTYPE html><title>Rust WebSocket Server</title><h1>Rust WebSocket Server</h1>"));
+    }
+}
+
+
+#[deriving(Clone)]
+struct ExampleWSServer;
+
+impl WebSocketServer for ExampleWSServer { }
+
+impl Server for ExampleWSServer {
+    fn get_config(&self) -> Config {
+        Config { bind_address: SocketAddr { ip: Ipv4Addr(127, 0, 0, 1), port: 8001 } }
+    }
+
+    fn handle_request(&self, r: &Request, w: &mut ResponseWriter) {
+        self.override_handle_request(r, w);
+    }
 }
 
 fn main() {
-    WebSocketServer.serve_forever();
+    ExampleWSServer.serve_forever();
 }
