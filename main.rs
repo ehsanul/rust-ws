@@ -20,6 +20,7 @@ use std::io::io_error;
 use std::io::net::tcp::TcpListener;
 
 use http::buffer::BufferedStream;
+use std::io::net::tcp::TcpStream;
 
 use http::server::{Config, Server, Request, ResponseWriter};
 use http::status::SwitchingProtocols;
@@ -30,6 +31,10 @@ use http::headers::connection::Token;
 use http::method::Get;
 
 static WEBSOCKET_SALT: &'static str = "258EAFA5-E914-47DA-95CA-C5AB0DC85B11";
+
+enum WebSocketState {
+  WSConnecting, WSOpen, WSClosing, WSClosed
+}
 
 trait WebSocketServer: Server {
 
@@ -68,12 +73,14 @@ trait WebSocketServer: Server {
             do spawn {
                 let mut stream = BufferedStream::new(optstream.unwrap());
                 debug!("accepted connection, got {:?}", stream);
+
+                let mut successful_handshake = false;
                 loop {  // A keep-alive loop, condition at end
                     let (request, err_status) = Request::load(&mut stream);
                     let mut response = ~ResponseWriter::new(&mut stream, request);
                     match err_status {
                         Ok(()) => {
-                            child_self.handle_possible_ws_request(request, response);
+                            successful_handshake = child_self.handle_possible_ws_request(request, response);
                             // Ensure that we actually do send a response:
                             response.try_write_headers();
                         },
@@ -89,11 +96,21 @@ trait WebSocketServer: Server {
                     // Ensure the request is flushed, any Transfer-Encoding completed, etc.
                     response.finish_response();
 
-                    if request.close_connection {
+                    if successful_handshake || request.close_connection {
                         break;
                     }
                 }
+
+                if successful_handshake {
+                    child_self.serve_websockets(&mut stream);
+                }
             }
+        }
+    }
+
+    fn serve_websockets(&self, stream: &mut BufferedStream<TcpStream>) {
+        loop {
+            debug!("byte: {}", stream.read_byte());
         }
     }
 
@@ -123,7 +140,7 @@ trait WebSocketServer: Server {
         return out.to_base64(STANDARD);
     }
 
-    fn handle_possible_ws_request(&self, r: &Request, w: &mut ResponseWriter) {
+    fn handle_possible_ws_request(&self, r: &Request, w: &mut ResponseWriter) -> bool {
         // TODO allow configuration of endpoint for websocket
         match (&r.method, &r.headers.upgrade){
             // (&Get, &Some(~"websocket"), &Some(~[Token(~"Upgrade")])) => //\{ FIXME this doesn't work. but client must have the header "Connection: Upgrade"
@@ -150,9 +167,11 @@ trait WebSocketServer: Server {
                         }
                     }
                 }
+                return true; // successful_handshake
             },
             (&_, &_) => self.handle_request(r, w)
         }
+        return false;
     }
 }
 
