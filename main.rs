@@ -6,6 +6,8 @@ extern mod extra;
 extern mod http;
 extern mod rust_crypto = "rust-crypto";
 
+use std::str::from_utf8;
+
 use rust_crypto::sha1::Sha1;
 use rust_crypto::digest::Digest;
 use extra::base64::{ToBase64, STANDARD};
@@ -109,13 +111,46 @@ trait WebSocketServer: Server {
     }
 
     fn serve_websockets(&self, stream: &mut BufferedStream<TcpStream>) {
+        let mut status = WSOpen;
         loop {
-            debug!("byte: {}", stream.read_byte());
+            let buf1 = stream.read_bytes(2); // FIXME trap io_error condition
+            debug!("buf1: {:t} {:t}", buf1[0], buf1[1]);
+
+            let fin    = buf1[0] & 0b1000_0000; // TODO check this, required for handling fragmented messages
+            let rsv1   = buf1[0] & 0b0100_0000;
+            let rsv2   = buf1[0] & 0b0010_0000;
+            let rsv3   = buf1[0] & 0b0001_0000;
+            let opcode = buf1[0] & 0b0000_1111;
+
+            let mask    = buf1[1] & 0b1000_0000;
+            let pay_len = buf1[1] & 0b0111_1111;
+
+            let payload_length = match pay_len {
+                127 => stream.read_be_u64(), // 8 bytes in network byte order
+                126 => stream.read_be_u16() as u64, // 2 bytes in network byte order
+                _   => pay_len as u64
+            };
+            debug!("payload_length: {}", payload_length);
+
+            let masking_key_buf = stream.read_bytes(4);
+            debug!("masking_key_buf: {:t} {:t} {:t} {:t}", masking_key_buf[0], masking_key_buf[1], masking_key_buf[2], masking_key_buf[3]);
+
+            let masked_payload_buf = stream.read_bytes(payload_length as uint); // FIXME payload_length could be upto 64 bits, so this could fail on archs with a 32-bit uint
+
+            // unmask the payload
+            let mut payload_buf = ~[]; // ugh, a map_with_index would be nice. or maybe just mutate the existing buffer in place.
+            for (i, &octet) in masked_payload_buf.iter().enumerate() {
+                payload_buf.push(octet ^ masking_key_buf[i % 4]);
+            }
+
+            let payload = from_utf8(payload_buf); // FIXME could be text OR binary! look at opcode to know which
+            debug!("payload: {}", payload);
         }
     }
 
     fn sec_websocket_accept(&self, sec_websocket_key: ~str) -> ~str {
-        //  NOTE from RFC 6455
+        // NOTE from RFC 6455
+        //
         // To prove that the handshake was received, the server has to take two
         // pieces of information and combine them to form a response.  The first
         // piece of information comes from the |Sec-WebSocket-Key| header field
@@ -144,7 +179,12 @@ trait WebSocketServer: Server {
         // TODO allow configuration of endpoint for websocket
         match (&r.method, &r.headers.upgrade){
             // (&Get, &Some(~"websocket"), &Some(~[Token(~"Upgrade")])) => //\{ FIXME this doesn't work. but client must have the header "Connection: Upgrade"
-            (&Get, &Some(~"websocket")) => { // TODO client must have the header "Connection: Upgrade"
+            (&Get, &Some(~"websocket")) => {
+                // TODO client must have the header "Connection: Upgrade"
+                //
+                // TODO The request MUST include a header field with the name
+                // |Sec-WebSocket-Version|. The value of this header field MUST be 13.
+
                 // WebSocket Opening Handshake
                 w.status = SwitchingProtocols;
                 w.headers.upgrade = Some(~"websocket");
