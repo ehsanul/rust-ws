@@ -29,8 +29,9 @@ static WEBSOCKET_SALT: &'static str = "258EAFA5-E914-47DA-95CA-C5AB0DC85B11";
 pub trait WebSocketServer: Server {
     fn handle_ws_connect(&self, receiver: Port<~str>, sender: Chan<~str>) -> (); // TODO take an WSMessage struct or something like that instead of ~str
 
-    // this is mostly a copy of the serve_forever fn in the Server trait
-    fn override_serve_forever(self) {
+    // XXX: this is mostly a copy of the serve_forever fn in the Server trait.
+    // i think rust-http needs some changes in order to avoid this duplication
+    fn ws_serve_forever(self) {
         let config = self.get_config();
         debug!("About to bind to {:?}", config.bind_address);
         let mut acceptor = match TcpListener::bind(config.bind_address).listen() {
@@ -240,7 +241,7 @@ pub trait WebSocketServer: Server {
                 // FIXME must we iter?
                 for header in r.headers.iter() {
                     match (header.header_name(), header.header_value()) {
-                        (~"Sec-Websocket-Key", val) => {
+                        (~"Sec-Websocket-Key", val) => { // NOTE: think this is actually Sec-WebSocket-Key (capital Web[S]ocket), but rust-http normalizes header names
                             let sec_websocket_accept = self.sec_websocket_accept(val);
                             debug!("sec websocket accept: {}", sec_websocket_accept);
                             w.headers.insert(ExtensionHeader(~"Sec-WebSocket-Accept", sec_websocket_accept));
@@ -250,6 +251,8 @@ pub trait WebSocketServer: Server {
                         }
                     }
                 }
+                // FIXME we should ensure the Sec-Websocket-Key was sent by the
+                // client and/or that we set the Sec-WebSocket before calling it a successful handshake
                 return true; // successful_handshake
             },
             (&_, &_) => self.handle_request(r, w)
