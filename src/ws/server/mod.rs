@@ -9,7 +9,6 @@ use rust_crypto::sha1::Sha1;
 use rust_crypto::digest::Digest;
 use extra::base64::{ToBase64, STANDARD};
 
-use std::io::Writer; // TODO need this?
 use extra::time;
 
 use std::io::{Listener, Acceptor};
@@ -18,11 +17,10 @@ use std::io::net::tcp::TcpListener;
 use http::buffer::BufferedStream;
 use std::io::net::tcp::TcpStream;
 
-use http::server::{Config, Server, Request, ResponseWriter};
+use http::server::{Server, Request, ResponseWriter};
 use http::status::SwitchingProtocols;
-use http::headers::HeaderEnum; // TODO need this?
+use http::headers::HeaderEnum;
 use http::headers::response::ExtensionHeader;
-use http::headers::content_type::MediaType; // TODO need this?
 use http::headers::connection::Token;
 use http::method::Get;
 
@@ -106,7 +104,8 @@ pub trait WebSocketServer: Server {
                 }
 
                 if successful_handshake {
-                    child_self.serve_websockets(stream);
+                    // Ignoring error returned if any, just let the connection terminate
+                    let _ = child_self.serve_websockets(stream);
                 }
             });
         }

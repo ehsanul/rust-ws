@@ -8,10 +8,8 @@ extern mod ws;
 
 use http::server::{Config, Server, Request, ResponseWriter};
 use std::io::net::ip::{SocketAddr, Ipv4Addr};
-use std::io::Writer; // TODO need this?
 use http::headers::content_type::MediaType;
 use extra::time;
-
 use ws::server::WebSocketServer;
 
 #[deriving(Clone)]
