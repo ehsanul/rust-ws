@@ -7,7 +7,7 @@ all: ws examples
 
 ws: $(libws_so)
 
-$(libws_so):
+$(libws_so): src/ws/lib.rs $(wildcard src/ws/server/*.rs)
 	mkdir -p build/
 	$(RUSTC) $(RUSTFLAGS) src/ws/lib.rs --out-dir build
 
