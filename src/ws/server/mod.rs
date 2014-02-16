@@ -27,6 +27,7 @@ use http::method::Get;
 static WEBSOCKET_SALT: &'static str = "258EAFA5-E914-47DA-95CA-C5AB0DC85B11";
 
 pub trait WebSocketServer: Server {
+    fn handle_ws_connect(&self, receiver: Port<~str>, sender: Chan<~str>) -> (); // TODO take an WSMessage struct or something like that instead of ~str
 
     // this is mostly a copy of the serve_forever fn in the Server trait
     fn override_serve_forever(self) {
@@ -114,8 +115,11 @@ pub trait WebSocketServer: Server {
     fn serve_websockets(&self, stream: BufferedStream<TcpStream>) -> IoResult<uint> {
         let mut stream = stream.wrapped;
         let write_stream = stream.clone();
-        let (port, chan) = Chan::new();
-        chan.send(~"test payload");
+        let (in_receiver, in_sender) = Chan::new();
+        let (out_receiver, out_sender) = Chan::new();
+
+        self.handle_ws_connect(in_receiver, out_sender); // this ought to create a loop in a task, shouldn't block! leaving implementation freedom to user, in case they want to custom scheduling etc
+
         spawn(proc() {
             // ugh: https://github.com/mozilla/rust/blob/3dbc1c34e694f38daeef741cfffc558606443c15/src/test/run-pass/kindck-implicit-close-over-mut-var.rs#L40-L44
             // work to fix this is ongoing here: https://github.com/mozilla/rust/issues/11958
@@ -126,9 +130,10 @@ pub trait WebSocketServer: Server {
             // is no good since the proc type has to return () to be used for
             // task spawning.
             loop {
-                let payload = port.recv();
+                let payload = out_receiver.recv();
+
+                // TODO extricate this logic into a response writer
                 write_stream.write_u8(0b1000_0001); // fin: 1, rsv: 000, opcode: 0001 (text frame) - TODO make this a configurable option
-                let payload = "From Rust: " + payload;
                 let payload_length = payload.len(); // FIXME len() returns a uint, so i'm guessing this doesn't work for extremely large payloads. in ws, payload length itself may be upto 64 bits. ie a 2gb+ message fails
 
                 // the first bit, which is the "mask" bit, is implicitly set as 0 here, as required for ws servers
@@ -147,6 +152,7 @@ pub trait WebSocketServer: Server {
             }
         });
         loop {
+            // TODO extricate this parsing logic into an fn
             let buf1 = if_ok!(stream.read_bytes(2));
             debug!("buf1: {:t} {:t}", buf1[0], buf1[1]);
 
@@ -181,7 +187,7 @@ pub trait WebSocketServer: Server {
 
             let payload = str::from_utf8_owned(payload_buf).unwrap(); // FIXME shouldn't just unwrap? also, could be text OR binary! look at opcode to know which
             debug!("payload: {}", payload);
-            chan.send(payload);
+            in_sender.send(payload);
         }
     }
 

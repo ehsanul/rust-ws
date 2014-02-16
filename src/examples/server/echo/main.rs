@@ -1,6 +1,6 @@
 //! A WebSocket Server
 
-#[crate_id = "wsexample"];
+#[crate_id = "echo"];
 
 extern mod extra;
 extern mod http;
@@ -13,11 +13,9 @@ use extra::time;
 use ws::server::WebSocketServer;
 
 #[deriving(Clone)]
-struct ExampleWSServer;
+struct EchoServer;
 
-impl WebSocketServer for ExampleWSServer { }
-
-impl Server for ExampleWSServer {
+impl Server for EchoServer {
     fn get_config(&self) -> Config {
         Config { bind_address: SocketAddr { ip: Ipv4Addr(127, 0, 0, 1), port: 8001 } }
     }
@@ -30,7 +28,7 @@ impl Server for ExampleWSServer {
 
     fn handle_request(&self, r: &Request, w: &mut ResponseWriter) {
         w.headers.date = Some(time::now_utc());
-        w.headers.server = Some(~"rust-ws/0.0-pre");
+        w.headers.server = Some(~"rust-echo/0.0-pre");
         w.headers.content_type = Some(MediaType {
             type_: ~"text",
             subtype: ~"html",
@@ -40,6 +38,17 @@ impl Server for ExampleWSServer {
     }
 }
 
+impl WebSocketServer for EchoServer {
+    fn handle_ws_connect(&self, receiver: Port<~str>, sender: Chan<~str>) {
+        spawn(proc() {
+            loop {
+                let payload = "From Rust: " + receiver.recv();
+                sender.send(payload);
+            }
+        });
+    }
+}
+
 fn main() {
-    ExampleWSServer.serve_forever();
+    EchoServer.serve_forever();
 }
