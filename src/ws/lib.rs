@@ -7,3 +7,4 @@ extern mod http;
 extern mod rust_crypto = "rust-crypto";
 
 pub mod server;
+pub mod message;

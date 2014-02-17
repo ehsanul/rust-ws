@@ -24,10 +24,18 @@ use http::headers::response::ExtensionHeader;
 use http::headers::connection::Token;
 use http::method::Get;
 
+use message::Message;
+
 static WEBSOCKET_SALT: &'static str = "258EAFA5-E914-47DA-95CA-C5AB0DC85B11";
 
 pub trait WebSocketServer: Server {
-    fn handle_ws_connect(&self, receiver: Port<~str>, sender: Chan<~str>) -> (); // TODO take an WSMessage struct or something like that instead of ~str
+    // called when a web socket connection is successfully established.
+    //
+    // this can't block! leaving implementation to trait user, in case they
+    // want to custom scheduling, tracking clients, etc.
+    //
+    // TODO: may want to send more info in, such as the connecting IP address?
+    fn handle_ws_connect(&self, receiver: Port<~Message>, sender: Chan<~Message>) -> ();
 
     // XXX: this is mostly a copy of the serve_forever fn in the Server trait.
     // i think rust-http needs some changes in order to avoid this duplication
@@ -106,89 +114,37 @@ pub trait WebSocketServer: Server {
                 }
 
                 if successful_handshake {
-                    // Ignoring error returned if any, just let the connection terminate
-                    let _ = child_self.serve_websockets(stream);
+                    child_self.serve_websockets(stream);
                 }
             });
         }
     }
 
-    fn serve_websockets(&self, stream: BufferedStream<TcpStream>) -> IoResult<uint> {
+    fn serve_websockets(&self, stream: BufferedStream<TcpStream>) {
         let mut stream = stream.wrapped;
         let write_stream = stream.clone();
         let (in_receiver, in_sender) = Chan::new();
         let (out_receiver, out_sender) = Chan::new();
 
-        self.handle_ws_connect(in_receiver, out_sender); // this ought to create a loop in a task, shouldn't block! leaving implementation freedom to user, in case they want to custom scheduling etc
+        self.handle_ws_connect(in_receiver, out_sender);
 
         spawn(proc() {
             // ugh: https://github.com/mozilla/rust/blob/3dbc1c34e694f38daeef741cfffc558606443c15/src/test/run-pass/kindck-implicit-close-over-mut-var.rs#L40-L44
             // work to fix this is ongoing here: https://github.com/mozilla/rust/issues/11958
             let mut write_stream = write_stream;
 
-            // we're ignoring all possible write errors for now. need a macro
-            // that shuts this task down. if_ok! just returns the Err(e), which
-            // is no good since the proc type has to return () to be used for
-            // task spawning.
+            // TODO: how do we know in this loop if the connection has dropped?
             loop {
-                let payload = out_receiver.recv();
-
-                // TODO extricate this logic into a response writer
-                write_stream.write_u8(0b1000_0001); // fin: 1, rsv: 000, opcode: 0001 (text frame) - TODO make this a configurable option
-                let payload_length = payload.len(); // FIXME len() returns a uint, so i'm guessing this doesn't work for extremely large payloads. in ws, payload length itself may be upto 64 bits. ie a 2gb+ message fails
-
-                // the first bit, which is the "mask" bit, is implicitly set as 0 here, as required for ws servers
-                if payload_length <= 125 {
-                    write_stream.write_u8(payload_length as u8);
-                } else if payload_length <= 65536 {
-                    write_stream.write_u8(126);
-                    write_stream.write_be_u16(payload_length as u16);
-                } else if payload_length <= 65536 {
-                    write_stream.write_u8(127);
-                    write_stream.write_be_u64(payload_length as u64);
-                }
-
-                write_stream.write_str(payload);
-                write_stream.flush();
+                let message = out_receiver.recv();
+                message.send(&mut write_stream).unwrap(); // fails this task in case of an error; TODO make sure this fails the read task
             }
         });
+
+        // TODO: how do we know in this loop if the writer task failed or connection has dropped?
         loop {
-            // TODO extricate this parsing logic into an fn
-            let buf1 = if_ok!(stream.read_bytes(2));
-            debug!("buf1: {:t} {:t}", buf1[0], buf1[1]);
-
-            let fin    = buf1[0] & 0b1000_0000; // TODO check this, required for handling fragmented messages
-            /* we ignore these, as they are only used if a websocket protocol has been enabled, and optionally at that
-            let rsv1   = buf1[0] & 0b0100_0000;
-            let rsv2   = buf1[0] & 0b0010_0000;
-            let rsv3   = buf1[0] & 0b0001_0000;
-            */
-            let opcode = buf1[0] & 0b0000_1111; // TODO check for ping/pong/text/binary
-
-            let mask    = buf1[1] & 0b1000_0000;
-            let pay_len = buf1[1] & 0b0111_1111;
-
-            let payload_length = match pay_len {
-                127 => if_ok!(stream.read_be_u64()), // 8 bytes in network byte order
-                126 => if_ok!(stream.read_be_u16()) as u64, // 2 bytes in network byte order
-                _   => pay_len as u64
-            };
-            debug!("payload_length: {}", payload_length);
-
-            let masking_key_buf = if_ok!(stream.read_bytes(4));
-            debug!("masking_key_buf: {:t} {:t} {:t} {:t}", masking_key_buf[0], masking_key_buf[1], masking_key_buf[2], masking_key_buf[3]);
-
-            let masked_payload_buf = if_ok!(stream.read_bytes(payload_length as uint)); // FIXME payload_length could be upto 64 bits, so this could fail on archs with a 32-bit uint
-
-            // unmask the payload
-            let mut payload_buf = ~[]; // ugh, a map_with_index would be nice. or maybe just mutate the existing buffer in place.
-            for (i, &octet) in masked_payload_buf.iter().enumerate() {
-                payload_buf.push(octet ^ masking_key_buf[i % 4]);
-            }
-
-            let payload = str::from_utf8_owned(payload_buf).unwrap(); // FIXME shouldn't just unwrap? also, could be text OR binary! look at opcode to know which
-            debug!("payload: {}", payload);
-            in_sender.send(payload);
+            let message = Message::load(&mut stream).unwrap(); // fails the task if there's an error. TODO make sure this fails the write task too
+            debug!("message: {:?}", message);
+            in_sender.send(message);
         }
     }
 
@@ -236,7 +192,7 @@ pub trait WebSocketServer: Server {
                 w.headers.content_length = Some(0);
                 w.headers.connection = Some(~[Token(~"Upgrade")]);
                 w.headers.date = Some(time::now_utc());
-                w.headers.server = Some(~"rust-ws/0.0-pre");
+                w.headers.server = Some(~"rust-ws/0.1-pre");
 
                 // FIXME must we iter?
                 for header in r.headers.iter() {

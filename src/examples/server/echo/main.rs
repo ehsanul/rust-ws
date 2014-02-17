@@ -10,7 +10,9 @@ use http::server::{Config, Server, Request, ResponseWriter};
 use std::io::net::ip::{SocketAddr, Ipv4Addr};
 use http::headers::content_type::MediaType;
 use extra::time;
+
 use ws::server::WebSocketServer;
+use ws::message::Message;
 
 #[deriving(Clone)]
 struct EchoServer;
@@ -34,11 +36,12 @@ impl Server for EchoServer {
 }
 
 impl WebSocketServer for EchoServer {
-    fn handle_ws_connect(&self, receiver: Port<~str>, sender: Chan<~str>) {
+    fn handle_ws_connect(&self, receiver: Port<~Message>, sender: Chan<~Message>) {
         spawn(proc() {
             loop {
-                let payload = "Echo: " + receiver.recv();
-                sender.send(payload);
+                let message = receiver.recv();
+                let echo_message = ~Message { payload: "Echo: " + message.payload };
+                sender.send(echo_message);
             }
         });
     }
