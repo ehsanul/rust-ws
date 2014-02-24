@@ -1,7 +1,6 @@
 # Code
 
-- make dependencies subrepositories
-- build dependancies in make
+- upgrade to latest rustc and deps
 - changes to rust-http to enable protocol upgrades without the current hacky
   approach in rust-ws
 - cleanly drop associated tasks - eg when the read task fails, the write task
