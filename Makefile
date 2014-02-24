@@ -1,9 +1,14 @@
 RUSTC ?= rustc
-RUSTFLAGS ?= -O -Z debug-info -L ../rust-http/build/ -L ../rust-crypto/
+RUSTFLAGS ?= -O -L lib/rust-http/build/ -L ../rust-crypto/
 
 libws_so=build/libws-8adb277a-0.1-pre.dylib
 
-all: ws examples
+all: deps ws examples
+
+deps: rust-http
+
+rust-http:
+	make -C lib/rust-http http
 
 ws: $(libws_so)
 
@@ -20,5 +25,6 @@ examples: $(patsubst src/examples/%/main.rs,build/examples/%,$(wildcard src/exam
 
 clean:
 	rm -rf build/
+	make -C lib/rust-http clean
 
 .PHONY: all ws examples clean
