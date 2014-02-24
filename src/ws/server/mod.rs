@@ -197,21 +197,19 @@ pub trait WebSocketServer: Server {
                 w.headers.date = Some(time::now_utc());
                 w.headers.server = Some(~"rust-ws/0.1-pre");
 
-                // FIXME must we iter?
                 for header in r.headers.iter() {
-                    match (header.header_name(), header.header_value()) {
-                        (~"Sec-Websocket-Key", val) => { // NOTE: think this is actually Sec-WebSocket-Key (capital Web[S]ocket), but rust-http normalizes header names
-                            let sec_websocket_accept = self.sec_websocket_accept(val);
-                            debug!("sec websocket accept: {}", sec_websocket_accept);
-                            w.headers.insert(ExtensionHeader(~"Sec-WebSocket-Accept", sec_websocket_accept));
-                        }
-                        (name, val) => {
-                            debug!("{}: {}", name, val);
-                        }
-                    }
+                    debug!("{}: {}", header.header_name(), header.header_value());
                 }
-                // FIXME we should ensure the Sec-Websocket-Key was sent by the
-                // client and/or that we set the Sec-WebSocket before calling it a successful handshake
+
+                // NOTE: think this is actually Sec-WebSocket-Key (capital Web[S]ocket), but rust-http normalizes header names
+                match r.headers.extensions.find(&~"Sec-Websocket-Key") {
+                    Some(val) => {
+                        let sec_websocket_accept = self.sec_websocket_accept(*val);
+                        w.headers.insert(ExtensionHeader(~"Sec-WebSocket-Accept", sec_websocket_accept));
+                    },
+                    None => fail!()
+                }
+
                 return true; // successful_handshake
             },
             (&_, &_) => self.handle_request(r, w)
