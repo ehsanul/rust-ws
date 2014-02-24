@@ -31,7 +31,8 @@ impl Server for EchoServer {
         });
         w.headers.server = Some(~"EchoServer");
 
-        w.write(bytes!("<h1>Echo Server</h1>"));
+        w.write(bytes!("<h1>Echo Server</h1>")).unwrap();
+        w.write(bytes!("<script>ws = new WebSocket('ws://localhost:8001/'); ws.onmessage = function(x){console.log(x)}; setInterval(function(){ ws.send('hi! ' + Math.random().toString()); }, 1000)</script>")).unwrap();
     }
 }
 
