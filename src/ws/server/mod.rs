@@ -125,27 +125,21 @@ pub trait WebSocketServer: Server {
 
         self.handle_ws_connect(in_receiver, out_sender);
 
+        // write task
         spawn(proc() {
             // ugh: https://github.com/mozilla/rust/blob/3dbc1c34e694f38daeef741cfffc558606443c15/src/test/run-pass/kindck-implicit-close-over-mut-var.rs#L40-L44
             // work to fix this is ongoing here: https://github.com/mozilla/rust/issues/11958
             let mut write_stream = write_stream;
 
-            // TODO: how do we know in this loop if the connection has dropped?
             loop {
                 let message = out_receiver.recv();
-                message.send(&mut write_stream).unwrap(); // fails this task in case of an error; TODO make sure this fails the read task
+                message.send(&mut write_stream).unwrap(); // fails this task in case of an error; FIXME make sure this fails the read (parent) task
             }
         });
 
-        // TODO: how do we know in this loop if the writer task failed or
-        // connection has dropped? the Message::load is blocking on a read. if
-        // the connection drops, this task will fail! just fine. however, if
-        // the writer task fails for some reason, the connection is not
-        // necessarily dropped. right now, the only failure mode for the write
-        // task other than the connection dropping is the other end of the Chan
-        // dropping out. in that case, we need to fail! this task too
+        // read task, effectively the parent of the write task
         loop {
-            let message = Message::load(&mut stream).unwrap(); // fails the task if there's an error. TODO make sure this fails the write task too
+            let message = Message::load(&mut stream).unwrap(); // fails the task if there's an error. FIXME make sure this fails the write task
             debug!("message: {:?}", message);
             in_sender.send(message);
         }
@@ -178,6 +172,8 @@ pub trait WebSocketServer: Server {
         return out.to_base64(STANDARD);
     }
 
+    // check if the http request is a web socket upgrade request, and return true if so.
+    // otherwise, fall back on the regular http request handler
     fn handle_possible_ws_request(&self, r: &Request, w: &mut ResponseWriter) -> bool {
         // TODO allow configuration of endpoint for websocket
         match (&r.method, &r.headers.upgrade){
