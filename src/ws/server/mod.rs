@@ -2,9 +2,6 @@ extern mod extra;
 extern mod http;
 extern mod rust_crypto = "rust-crypto";
 
-use std::io::IoResult;
-use std::str;
-
 use rust_crypto::sha1::Sha1;
 use rust_crypto::digest::Digest;
 use extra::base64::{ToBase64, STANDARD};

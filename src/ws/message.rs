@@ -30,7 +30,8 @@ impl Message {
         let buf1 = if_ok!(stream.read_bytes(2));
         debug!("buf1: {:t} {:t}", buf1[0], buf1[1]);
 
-        let fin    = buf1[0] & 0b1000_0000; // TODO check this, required for handling fragmented messages
+        //let fin    = buf1[0] & 0b1000_0000; // TODO check this, required for handling fragmented messages
+
         /* we ignore these, as they are only used if a websocket protocol has been enabled, and optionally at that
         let rsv1   = buf1[0] & 0b0100_0000;
         let rsv2   = buf1[0] & 0b0010_0000;
@@ -39,7 +40,7 @@ impl Message {
         let opcode = buf1[0] & 0b0000_1111;
         let opcode: Opcode = num::from_u8(opcode).unwrap(); // all valid RFC 6455 Opcodes specified, invalid ones will fail!()
 
-        let mask    = buf1[1] & 0b1000_0000;
+        //let mask    = buf1[1] & 0b1000_0000; TODO use this to determine whether to unmask or not
         let pay_len = buf1[1] & 0b0111_1111;
 
         let payload_length = match pay_len {
