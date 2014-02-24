@@ -32,13 +32,13 @@ pub trait WebSocketServer: Server {
     // called when a web socket connection is successfully established.
     //
     // this can't block! leaving implementation to trait user, in case they
-    // want to custom scheduling, tracking clients, etc.
+    // want to custom scheduling, tracking clients, reconnect logic, etc.
     //
     // TODO: may want to send more info in, such as the connecting IP address?
     fn handle_ws_connect(&self, receiver: Port<~Message>, sender: Chan<~Message>) -> ();
 
     // XXX: this is mostly a copy of the serve_forever fn in the Server trait.
-    // i think rust-http needs some changes in order to avoid this duplication
+    //      rust-http needs some changes in order to avoid this duplication
     fn ws_serve_forever(self) {
         let config = self.get_config();
         debug!("About to bind to {:?}", config.bind_address);
@@ -140,7 +140,13 @@ pub trait WebSocketServer: Server {
             }
         });
 
-        // TODO: how do we know in this loop if the writer task failed or connection has dropped?
+        // TODO: how do we know in this loop if the writer task failed or
+        // connection has dropped? the Message::load is blocking on a read. if
+        // the connection drops, this task will fail! just fine. however, if
+        // the writer task fails for some reason, the connection is not
+        // necessarily dropped. right now, the only failure mode for the write
+        // task other than the connection dropping is the other end of the Chan
+        // dropping out. in that case, we need to fail! this task too
         loop {
             let message = Message::load(&mut stream).unwrap(); // fails the task if there's an error. TODO make sure this fails the write task too
             debug!("message: {:?}", message);
@@ -148,7 +154,7 @@ pub trait WebSocketServer: Server {
         }
     }
 
-    fn sec_websocket_accept(&self, sec_websocket_key: ~str) -> ~str {
+    fn sec_websocket_accept(&self, sec_websocket_key: &str) -> ~str {
         // NOTE from RFC 6455
         //
         // To prove that the handshake was received, the server has to take two

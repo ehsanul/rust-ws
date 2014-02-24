@@ -12,7 +12,7 @@ use http::headers::content_type::MediaType;
 use extra::time;
 
 use ws::server::WebSocketServer;
-use ws::message::Message;
+use ws::message::{Message, TextOp, Text, BinaryOp, Binary};
 
 #[deriving(Clone)]
 struct EchoServer;
@@ -40,7 +40,15 @@ impl WebSocketServer for EchoServer {
         spawn(proc() {
             loop {
                 let message = receiver.recv();
-                let echo_message = ~Message { payload: "Echo: " + message.payload };
+                let (payload, opcode) = match message.payload {
+                    Text(p)   => (Text("Echo: " + p), TextOp),
+                    Binary(p) => (Binary(p), BinaryOp),
+                    //_         => unimplemented!(), // this is unreachable for now due to server refusing to pass other opcodes
+                };
+                let echo_message = ~Message {
+                    payload: payload,
+                    opcode: opcode,
+                };
                 sender.send(echo_message);
             }
         });

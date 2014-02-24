@@ -21,7 +21,6 @@
 # Missing Support
 
 - closing handshake
-- binary messages
 - ping/pong frames
 - fragmented messages
 - TLS
