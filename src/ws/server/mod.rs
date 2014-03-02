@@ -1,12 +1,7 @@
-extern mod extra;
-extern mod http;
-extern mod rust_crypto = "rust-crypto";
-
 use rust_crypto::sha1::Sha1;
 use rust_crypto::digest::Digest;
-use extra::base64::{ToBase64, STANDARD};
-
-use extra::time;
+use serialize::base64::{ToBase64, STANDARD};
+use time;
 
 use std::io::{Listener, Acceptor};
 use std::io::net::tcp::TcpListener;

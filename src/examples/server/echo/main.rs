@@ -2,14 +2,13 @@
 
 #[crate_id = "echo"];
 
-extern mod extra;
-extern mod http;
-extern mod ws;
+extern crate time;
+extern crate http;
+extern crate ws;
 
 use http::server::{Config, Server, Request, ResponseWriter};
 use std::io::net::ip::{SocketAddr, Ipv4Addr};
 use http::headers::content_type::MediaType;
-use extra::time;
 
 use ws::server::WebSocketServer;
 use ws::message::{Message, TextOp, Text, BinaryOp, Binary};
