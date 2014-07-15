@@ -8,6 +8,7 @@ all: deps ws examples
 deps: rust-http rust-crypto
 
 rust-http:
+	cd lib/rust-http && ./configure # hack
 	make -C lib/rust-http http
 
 rust-crypto:

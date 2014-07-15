@@ -4,8 +4,8 @@ use std::str;
 use std::num;
 
 pub enum Payload {
-    Text(~str),
-    Binary(~[u8]),
+    Text(Box<String>),
+    Binary(Vec<u8>),
 }
 
 #[deriving(FromPrimitive)]
@@ -21,14 +21,15 @@ pub enum Opcode {
 // this struct will eventually encapsulate data framing, opcodes, ws extensions, masks etc
 // right now, only single frames, with a text payload are supported
 pub struct Message {
-    payload: Payload, // TODO: make this a Payload enum or something
-    opcode: Opcode
+    pub payload: Payload,
+    pub opcode: Opcode
 }
 
 impl Message {
-    pub fn load(stream: &mut TcpStream) -> IoResult<~Message> {
-        let buf1 = try!(stream.read_bytes(2));
-        debug!("buf1: {:t} {:t}", buf1[0], buf1[1]);
+    pub fn load(stream: &mut TcpStream) -> IoResult<Box<Message>> {
+        let vec1 = try!(stream.read_exact(2));
+        let buf1 = vec1.as_slice();
+        println!("buf1: {:t} {:t}", buf1[0], buf1[1]);
 
         //let fin    = buf1[0] & 0b1000_0000; // TODO check this, required for handling fragmented messages
 
@@ -48,26 +49,27 @@ impl Message {
             126 => try!(stream.read_be_u16()) as u64, // 2 bytes in network byte order
             _   => pay_len as u64
         };
-        debug!("payload_length: {}", payload_length);
+        println!("payload_length: {}", payload_length);
 
-        let masking_key_buf = try!(stream.read_bytes(4));
-        debug!("masking_key_buf: {:t} {:t} {:t} {:t}", masking_key_buf[0], masking_key_buf[1], masking_key_buf[2], masking_key_buf[3]);
+        let masking_key_vec = try!(stream.read_exact(4));
+        let masking_key_buf = masking_key_vec.as_slice();
+        println!("masking_key_buf: {:t} {:t} {:t} {:t}", masking_key_buf[0], masking_key_buf[1], masking_key_buf[2], masking_key_buf[3]);
 
-        let masked_payload_buf = try!(stream.read_bytes(payload_length as uint));
+        let masked_payload_buf = try!(stream.read_exact(payload_length as uint));
 
         // unmask the payload
-        let mut payload_buf = ~[]; // instead of a mutable vector, a map_with_index would be nice. or maybe just mutate the existing buffer in place.
+        let mut payload_buf = vec!(); // instead of a mutable vector, a map_with_index would be nice. or maybe just mutate the existing buffer in place.
         for (i, &octet) in masked_payload_buf.iter().enumerate() {
             payload_buf.push(octet ^ masking_key_buf[i % 4]);
         }
 
         let payload: Payload = match opcode {
-            TextOp   => Text(str::from_utf8_owned(payload_buf).unwrap()),
+            TextOp   => Text(box str::from_utf8_owned(payload_buf).unwrap()),
             BinaryOp => Binary(payload_buf),
             _        => unimplemented!(), // TODO ping/pong/close/continuation
         };
 
-        let message = ~Message {
+        let message = box Message {
             payload: payload,
             opcode: opcode
         };
@@ -80,7 +82,7 @@ impl Message {
     // the common code, and public `client_send` and `server_send` methods.
     // these methods will be called by the WebSokcetClient and WebSocketServer
     // traits respectively, and the interface for both clients and servers is
-    // the same - just send on the Chan, and the trait takes care of it
+    // the same - just send on the channel, and the trait takes care of it
     pub fn send(&self, stream: &mut TcpStream) -> IoResult<()> {
         let payload_length = match self.payload {
             Text(ref p) => p.len(),
@@ -101,8 +103,8 @@ impl Message {
         }
 
         match self.payload {
-            Text(ref p)   => try!(stream.write_str(*p)),
-            Binary(ref p) => try!(stream.write(*p)),
+            Text(ref p)   => try!(stream.write((*p).as_slice().as_bytes())),
+            Binary(ref p) => try!(stream.write((*p).as_slice())),
         }
 
         try!(stream.flush());

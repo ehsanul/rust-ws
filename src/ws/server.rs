@@ -27,14 +27,14 @@ pub trait WebSocketServer: Server {
     // want to custom scheduling, tracking clients, reconnect logic, etc.
     //
     // TODO: may want to send more info in, such as the connecting IP address?
-    fn handle_ws_connect(&self, receiver: Port<~Message>, sender: Chan<~Message>) -> ();
+    fn handle_ws_connect(&self, receiver: Receiver<Box<Message>>, sender: Sender<Box<Message>>) -> ();
 
     // XXX: this is mostly a copy of the serve_forever fn in the Server trait.
     //      rust-http needs some changes in order to avoid this duplication
     fn ws_serve_forever(self) {
         let config = self.get_config();
         debug!("About to bind to {:?}", config.bind_address);
-        let mut acceptor = match TcpListener::bind(config.bind_address).listen() {
+        let mut acceptor = match TcpListener::bind(config.bind_address.ip.to_str().as_slice(), config.bind_address.port).listen() {
             Err(err) => {
                 error!("bind or listen failed :-(: {}", err);
                 return;
@@ -63,10 +63,11 @@ pub trait WebSocketServer: Server {
                 let mut successful_handshake = false;
                 loop {  // A keep-alive loop, condition at end
                     let (request, err_status) = Request::load(&mut stream);
-                    let mut response = ~ResponseWriter::new(&mut stream, request);
+                    let close_connection = request.close_connection;
+                    let mut response = ResponseWriter::new(&mut stream);
                     match err_status {
                         Ok(()) => {
-                            successful_handshake = child_self.handle_possible_ws_request(request, response);
+                            successful_handshake = child_self.handle_possible_ws_request(request, &mut response);
                             // Ensure that we actually do send a response:
                             match response.try_write_headers() {
                                 Err(err) => {
@@ -100,7 +101,7 @@ pub trait WebSocketServer: Server {
                         Ok(_) => (),
                     }
 
-                    if successful_handshake || request.close_connection {
+                    if successful_handshake || close_connection {
                         break;
                     }
                 }
@@ -115,8 +116,8 @@ pub trait WebSocketServer: Server {
     fn serve_websockets(&self, stream: BufferedStream<TcpStream>) {
         let mut stream = stream.wrapped;
         let write_stream = stream.clone();
-        let (in_receiver, in_sender) = Chan::new();
-        let (out_receiver, out_sender) = Chan::new();
+        let (in_sender, in_receiver) = channel();
+        let (out_sender, out_receiver) = channel();
 
         self.handle_ws_connect(in_receiver, out_sender);
 
@@ -135,12 +136,12 @@ pub trait WebSocketServer: Server {
         // read task, effectively the parent of the write task
         loop {
             let message = Message::load(&mut stream).unwrap(); // fails the task if there's an error. FIXME make sure this fails the write task
-            debug!("message: {:?}", message);
+            println!("message: {:?}", message);
             in_sender.send(message);
         }
     }
 
-    fn sec_websocket_accept(&self, sec_websocket_key: &str) -> ~str {
+    fn sec_websocket_accept(&self, sec_websocket_key: &str) -> String {
         // NOTE from RFC 6455
         //
         // To prove that the handshake was received, the server has to take two
@@ -162,18 +163,23 @@ pub trait WebSocketServer: Server {
 
         let mut sh = Sha1::new();
         let mut out = [0u8, ..20];
-        sh.input_str(sec_websocket_key + WEBSOCKET_SALT);
+        sh.input_str(String::from_str(sec_websocket_key).append(WEBSOCKET_SALT).as_slice());
         sh.result(out);
         return out.to_base64(STANDARD);
     }
 
     // check if the http request is a web socket upgrade request, and return true if so.
     // otherwise, fall back on the regular http request handler
-    fn handle_possible_ws_request(&self, r: &Request, w: &mut ResponseWriter) -> bool {
+    fn handle_possible_ws_request(&self, r: Request, w: &mut ResponseWriter) -> bool {
         // TODO allow configuration of endpoint for websocket
-        match (&r.method, &r.headers.upgrade){
-            // (&Get, &Some(~"websocket"), &Some(~[Token(~"Upgrade")])) => //\{ FIXME this doesn't work. but client must have the header "Connection: Upgrade"
-            (&Get, &Some(~"websocket")) => {
+        match (r.method.clone(), r.headers.upgrade.clone()){
+            // (&Get, &Some("websocket"), &Some(box [Token(box "Upgrade")])) => //\{ FIXME this doesn't work. but client must have the header "Connection: Upgrade"
+            (Get, Some(ref upgrade)) => {
+                if upgrade.as_slice() != String::from_str("websocket").as_slice(){
+                    self.handle_request(r, w);
+                    return false;
+                }
+
                 // TODO client must have the header "Connection: Upgrade"
                 //
                 // TODO The request MUST include a header field with the name
@@ -181,29 +187,29 @@ pub trait WebSocketServer: Server {
 
                 // WebSocket Opening Handshake
                 w.status = SwitchingProtocols;
-                w.headers.upgrade = Some(~"websocket");
+                w.headers.upgrade = Some(String::from_str("websocket"));
                 // w.headers.transfer_encoding = None;
                 w.headers.content_length = Some(0);
-                w.headers.connection = Some(~[Token(~"Upgrade")]);
+                w.headers.connection = Some(vec!(Token(String::from_str("Upgrade"))));
                 w.headers.date = Some(time::now_utc());
-                w.headers.server = Some(~"rust-ws/0.1-pre");
+                w.headers.server = Some(String::from_str("rust-ws/0.1-pre"));
 
                 for header in r.headers.iter() {
-                    debug!("{}: {}", header.header_name(), header.header_value());
+                    debug!("Header {}: {}", header.header_name(), header.header_value());
                 }
 
                 // NOTE: think this is actually Sec-WebSocket-Key (capital Web[S]ocket), but rust-http normalizes header names
-                match r.headers.extensions.find(&~"Sec-Websocket-Key") {
+                match r.headers.extensions.find(&String::from_str("Sec-Websocket-Key")) {
                     Some(val) => {
-                        let sec_websocket_accept = self.sec_websocket_accept(*val);
-                        w.headers.insert(ExtensionHeader(~"Sec-WebSocket-Accept", sec_websocket_accept));
+                        let sec_websocket_accept = self.sec_websocket_accept((*val).as_slice());
+                        w.headers.insert(ExtensionHeader(String::from_str("Sec-WebSocket-Accept"), sec_websocket_accept));
                     },
                     None => fail!()
                 }
 
                 return true; // successful_handshake
             },
-            (&_, &_) => self.handle_request(r, w)
+            (_, _) => self.handle_request(r, w)
         }
         return false;
     }

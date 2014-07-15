@@ -1,6 +1,6 @@
 //! A WebSocket Server
 
-#[crate_id = "echo"];
+#![crate_id = "echo"]
 
 extern crate time;
 extern crate http;
@@ -21,31 +21,31 @@ impl Server for EchoServer {
         Config { bind_address: SocketAddr { ip: Ipv4Addr(127, 0, 0, 1), port: 8001 } }
     }
 
-    fn handle_request(&self, r: &Request, w: &mut ResponseWriter) {
+    fn handle_request(&self, r: Request, w: &mut ResponseWriter) {
         w.headers.date = Some(time::now_utc());
         w.headers.content_type = Some(MediaType {
-            type_: ~"text",
-            subtype: ~"html",
-            parameters: ~[(~"charset", ~"UTF-8")]
+            type_: String::from_str("text"),
+            subtype: String::from_str("html"),
+            parameters: vec!((String::from_str("charset"), String::from_str("UTF-8"))),
         });
-        w.headers.server = Some(~"EchoServer");
+        w.headers.server = Some(String::from_str("EchoServer"));
 
-        w.write(bytes!("<h1>Echo Server</h1>")).unwrap();
-        w.write(bytes!("<script>ws = new WebSocket('ws://localhost:8001/'); ws.onmessage = function(x){console.log(x)}; setInterval(function(){ ws.send('hi! ' + Math.random().toString()); }, 1000)</script>")).unwrap();
+        w.write(b"<h1>Echo Server</h1>").unwrap();
+        w.write(b"<script>count = 0; interval = setInterval(function(){ ws = new WebSocket('ws://localhost:8001/'); count++; if (count > 300){ clearInterval(interval) } }, 10)</script>").unwrap();
     }
 }
 
 impl WebSocketServer for EchoServer {
-    fn handle_ws_connect(&self, receiver: Port<~Message>, sender: Chan<~Message>) {
+    fn handle_ws_connect(&self, receiver: Receiver<Box<Message>>, sender: Sender<Box<Message>>) {
         spawn(proc() {
             loop {
                 let message = receiver.recv();
                 let (payload, opcode) = match message.payload {
-                    Text(p)   => (Text("Echo: " + p), TextOp),
+                    Text(p)   => (Text(box String::from_str("Echo: ").append((*p).as_slice())), TextOp),
                     Binary(p) => (Binary(p), BinaryOp),
                     //_         => unimplemented!(), // this is unreachable for now due to server refusing to pass other opcodes
                 };
-                let echo_message = ~Message {
+                let echo_message = box Message {
                     payload: payload,
                     opcode: opcode,
                 };
