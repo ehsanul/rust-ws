@@ -1,4 +1,3 @@
-#![crate_id = "ws#0.1-pre"]
 //#![crate_type = "dylib"] // FIXME this fails with regular rust-crypto, since just builds rlibs by default. TODO PR to fix that
 #![crate_type = "rlib"]
 

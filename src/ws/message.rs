@@ -1,6 +1,5 @@
 use std::io::net::tcp::TcpStream;
 use std::io::IoResult;
-use std::str;
 use std::num;
 
 pub enum Payload {
@@ -64,7 +63,7 @@ impl Message {
         }
 
         let payload: Payload = match opcode {
-            TextOp   => Text(box str::from_utf8_owned(payload_buf).unwrap()),
+            TextOp   => Text(box String::from_utf8(payload_buf).unwrap()),
             BinaryOp => Binary(payload_buf),
             _        => unimplemented!(), // TODO ping/pong/close/continuation
         };
