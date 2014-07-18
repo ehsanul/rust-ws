@@ -1,0 +1,18 @@
+[package]
+
+name = "rust-ws"
+version = "0.1.0"
+authors = [ "ehsanul@ehsanul.com" ]
+
+[[lib]]
+
+name = "ws"
+path = "src/ws/lib.rs"
+
+[dependencies.http]
+
+git = "https://github.com/chris-morgan/rust-http"
+
+[dependencies.rust-crypto]
+
+git = "https://github.com/DaGenix/rust-crypto"
