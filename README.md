@@ -18,7 +18,7 @@ dependancies.
 
 ## Examples
 
-See the echo server example under `src/examples` for basic usage.
+See the echo server example under the `examples/` directory for basic usage.
 
 ## Todo
 
@@ -26,8 +26,6 @@ So much to do.
 
 ### Code
 
-- Changes to rust-http to enable protocol upgrades without the current hacky
-  approach in rust-ws.
 - Cleanly drop associated tasks - ie when the read task fails, the write task
   ought to be `fail!`-ed, even if it is waiting on a separate Chan read, and
   vice-versa. Right now, this is not handled properly, leading to a memory leak
