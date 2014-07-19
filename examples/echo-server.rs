@@ -1,7 +1,5 @@
 //! A WebSocket Server
 
-#![crate_id = "echo"]
-
 extern crate time;
 extern crate http;
 extern crate ws;
