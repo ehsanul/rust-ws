@@ -1,3 +1,5 @@
+# XXX Use cargo instead of this
+
 RUSTC ?= rustc
 RUSTFLAGS ?= -O -L lib/rust-http/build/ -L lib/rust-crypto/
 

@@ -8,12 +8,13 @@ missing, there's a lot to do!
 ## Build
 
 You need to have a bleeding-edge rustc already in your `PATH` first, though
-this repository may be a week or two behind master at times. Other dependancies
-(rust-http and rust-crypto) are included as submodules already.
+this repository may be somewhat behind master at times. Cargo will fetch other
+dependancies.
 
-    git clone --recursive git@github.com:ehsanul/rust-ws.git
+    git clone git@github.com:ehsanul/rust-ws.git
     cd rust-ws
-    make all
+    cargo build
+    cargo test # builds examples in test/
 
 ## Examples
 
