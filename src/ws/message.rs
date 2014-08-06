@@ -96,7 +96,7 @@ impl Message {
         } else if payload_length <= 65536 {
             try!(stream.write_u8(126));
             try!(stream.write_be_u16(payload_length as u16));
-        } else if payload_length <= 65536 {
+        } else if payload_length > 65536 {
             try!(stream.write_u8(127));
             try!(stream.write_be_u64(payload_length as u64));
         }
