@@ -2,12 +2,14 @@ use std::io::net::tcp::TcpStream;
 use std::io::IoResult;
 use std::num;
 
+#[deriving(Clone)]
 pub enum Payload {
     Text(Box<String>),
     Binary(Vec<u8>),
+    Empty
 }
 
-#[deriving(FromPrimitive)]
+#[deriving(Clone, FromPrimitive)]
 pub enum Opcode {
     ContinuationOp = 0x0,
     TextOp         = 0x1,
@@ -19,6 +21,7 @@ pub enum Opcode {
 
 // this struct will eventually encapsulate data framing, opcodes, ws extensions, masks etc
 // right now, only single frames, with a text payload are supported
+#[deriving(Clone)]
 pub struct Message {
     pub payload: Payload,
     pub opcode: Opcode
@@ -63,8 +66,9 @@ impl Message {
         }
 
         let payload: Payload = match opcode {
-            TextOp   => Text(box String::from_utf8(payload_buf).unwrap()),
+            TextOp   => Text(box String::from_utf8(payload_buf).unwrap()), // unsafe unwrap? failures during autobahn
             BinaryOp => Binary(payload_buf),
+            CloseOp  => Empty,
             _        => unimplemented!(), // TODO ping/pong/close/continuation
         };
 
@@ -86,6 +90,7 @@ impl Message {
         let payload_length = match self.payload {
             Text(ref p) => p.len(),
             Binary(ref p) => p.len(),
+            Empty => 0,
         };
 
         try!(stream.write_u8(0b1000_0000 | self.opcode as u8)); // fin: 1, rsv: 000, opcode: see Opcode
@@ -104,6 +109,7 @@ impl Message {
         match self.payload {
             Text(ref p)   => try!(stream.write((*p).as_slice().as_bytes())),
             Binary(ref p) => try!(stream.write((*p).as_slice())),
+            Empty => {},
         }
 
         try!(stream.flush());

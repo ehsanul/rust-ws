@@ -1,6 +1,8 @@
+use std::io::IoResult;
 use rust_crypto::sha1::Sha1;
 use rust_crypto::digest::Digest;
 use serialize::base64::{ToBase64, STANDARD};
+use std::ascii::StrAsciiExt;
 use time;
 
 use std::io::{Listener, Acceptor};
@@ -16,7 +18,7 @@ use http::headers::response::ExtensionHeader;
 use http::headers::connection::Token;
 use http::method::Get;
 
-use message::Message;
+use message::{Message, CloseOp};
 
 static WEBSOCKET_SALT: &'static str = "258EAFA5-E914-47DA-95CA-C5AB0DC85B11";
 
@@ -113,7 +115,7 @@ pub trait WebSocketServer: Server {
         }
     }
 
-    fn serve_websockets(&self, stream: BufferedStream<TcpStream>) {
+    fn serve_websockets(&self, stream: BufferedStream<TcpStream>) -> IoResult<()> {
         let mut stream = stream.wrapped;
         let write_stream = stream.clone();
         let (in_sender, in_receiver) = channel();
@@ -135,10 +137,21 @@ pub trait WebSocketServer: Server {
 
         // read task, effectively the parent of the write task
         loop {
-            let message = Message::load(&mut stream).unwrap(); // fails the task if there's an error. FIXME make sure this fails the write task
+            let message = Message::load(&mut stream).unwrap(); // fails the task if there's an error.
             println!("message: {:?}", message);
-            in_sender.send(message);
+
+            match message.opcode {
+                CloseOp => {
+                    try!(stream.close_read());
+                    try!(message.send(&mut stream)); // complete close handeshake - send the same message right back at the client
+                    try!(stream.close_write());
+                    break; // as this task dies, this should release the write task above, as well as the task set up in handle_ws_connection, if any
+                },
+                _ => in_sender.send(message)
+            }
         }
+
+        Ok(())
     }
 
     fn sec_websocket_accept(&self, sec_websocket_key: &str) -> String {
@@ -175,7 +188,7 @@ pub trait WebSocketServer: Server {
         match (r.method.clone(), r.headers.upgrade.clone()){
             // (&Get, &Some("websocket"), &Some(box [Token(box "Upgrade")])) => //\{ FIXME this doesn't work. but client must have the header "Connection: Upgrade"
             (Get, Some(ref upgrade)) => {
-                if upgrade.as_slice() != String::from_str("websocket").as_slice(){
+                if !upgrade.as_slice().eq_ignore_ascii_case("websocket"){
                     self.handle_request(r, w);
                     return false;
                 }

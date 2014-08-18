@@ -1,4 +1,4 @@
-//! A WebSocket Server
+//! A WebSocket Echo Server
 
 extern crate time;
 extern crate http;
@@ -38,10 +38,11 @@ impl WebSocketServer for EchoServer {
         spawn(proc() {
             loop {
                 let message = receiver.recv();
+
                 let (payload, opcode) = match message.payload {
-                    Text(p)   => (Text(box String::from_str("Echo: ").append((*p).as_slice())), TextOp),
+                    Text(p)   => (Text(p), TextOp),
                     Binary(p) => (Binary(p), BinaryOp),
-                    //_         => unimplemented!(), // this is unreachable for now due to server refusing to pass other opcodes
+                    _         => unimplemented!(),
                 };
                 let echo_message = box Message {
                     payload: payload,

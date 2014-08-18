@@ -1,0 +1,13 @@
+{
+   "options": {"failByDrop": false},
+   "outdir": "./reports/servers",
+   "servers": [
+                  {
+                     "agent": "rust-ws",
+                     "url": "ws://127.0.0.1:8001"
+                  }
+              ],
+   "cases": ["*"],
+   "exclude-cases": ["9.*"],
+   "exclude-agent-cases": {}
+}
