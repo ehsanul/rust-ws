@@ -4,7 +4,7 @@ name = "rust-ws"
 version = "0.1.0"
 authors = [ "ehsanul@ehsanul.com" ]
 
-[[lib]]
+[lib]
 
 name = "ws"
 path = "src/ws/lib.rs"
