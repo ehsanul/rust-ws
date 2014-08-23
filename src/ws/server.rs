@@ -18,7 +18,7 @@ use http::headers::response::ExtensionHeader;
 use http::headers::connection::Token;
 use http::method::Get;
 
-use message::{Message, CloseOp};
+use message::{Message, PingOp, PongOp, CloseOp};
 
 static WEBSOCKET_SALT: &'static str = "258EAFA5-E914-47DA-95CA-C5AB0DC85B11";
 
@@ -146,6 +146,13 @@ pub trait WebSocketServer: Server {
                     try!(message.send(&mut stream)); // complete close handeshake - send the same message right back at the client
                     try!(stream.close_write());
                     break; // as this task dies, this should release the write task above, as well as the task set up in handle_ws_connection, if any
+                },
+                PingOp => {
+                    let pong = Message {
+                        payload: message.payload,
+                        opcode: PongOp
+                    };
+                    try!(pong.send(&mut stream));
                 },
                 _ => in_sender.send(message)
             }
