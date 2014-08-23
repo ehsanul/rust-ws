@@ -98,10 +98,10 @@ impl Message {
         // FIXME: this assumes a server. the first bit, which is the "mask" bit, is implicitly set as 0 here, as required for ws servers
         if payload_length <= 125 {
             try!(stream.write_u8(payload_length as u8));
-        } else if payload_length <= 65536 {
+        } else if payload_length <= 65535 {
             try!(stream.write_u8(126));
             try!(stream.write_be_u16(payload_length as u16));
-        } else if payload_length > 65536 {
+        } else if payload_length > 65535 {
             try!(stream.write_u8(127));
             try!(stream.write_be_u64(payload_length as u64));
         }
