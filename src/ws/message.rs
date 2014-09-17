@@ -4,7 +4,7 @@ use std::num;
 
 #[deriving(Clone)]
 pub enum Payload {
-    Text(Box<String>),
+    Text(String),
     Binary(Vec<u8>),
     Empty
 }
@@ -66,7 +66,7 @@ impl Message {
         }
 
         let payload: Payload = match opcode {
-            TextOp   => Text(box String::from_utf8(payload_buf).unwrap()), // unsafe unwrap? failures during autobahn
+            TextOp   => Text(String::from_utf8(payload_buf).unwrap()), // unsafe unwrap? failures during autobahn
             BinaryOp => Binary(payload_buf),
             CloseOp  => Empty,
             _        => unimplemented!(), // TODO ping/pong/close/continuation
