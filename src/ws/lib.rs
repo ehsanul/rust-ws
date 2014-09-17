@@ -8,7 +8,8 @@ extern crate debug;
 extern crate time;
 extern crate serialize;
 extern crate http;
-extern crate rust_crypto = "rust-crypto";
+extern crate "rust-crypto" as rust_crypto;
+
 
 pub mod server;
 pub mod message;
