@@ -69,7 +69,9 @@ impl Message {
             TextOp   => Text(String::from_utf8(payload_buf).unwrap()), // unsafe unwrap? failures during autobahn
             BinaryOp => Binary(payload_buf),
             CloseOp  => Empty,
-            _        => unimplemented!(), // TODO ping/pong/close/continuation
+            PingOp   => Binary(payload_buf),
+            PongOp   => Binary(payload_buf),
+            _        => unimplemented!(), // ContinuationOp
         };
 
         let message = box Message {

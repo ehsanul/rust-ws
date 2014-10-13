@@ -154,6 +154,7 @@ pub trait WebSocketServer: Server {
                     };
                     try!(pong.send(&mut stream));
                 },
+                PongOp => (),
                 _ => in_sender.send(message)
             }
         }
