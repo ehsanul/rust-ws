@@ -53,6 +53,12 @@ impl Message {
         };
         println!("payload_length: {}", payload_length);
 
+        // payloads larger than 125 bytes are not allowed for control frames
+        match opcode {
+            CloseOp | PingOp if payload_length > 125 => fail!(),
+            _ => ()
+        }
+
         let masking_key_vec = try!(stream.read_exact(4));
         let masking_key_buf = masking_key_vec.as_slice();
         println!("masking_key_buf: {:t} {:t} {:t} {:t}", masking_key_buf[0], masking_key_buf[1], masking_key_buf[2], masking_key_buf[3]);
