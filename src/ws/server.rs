@@ -37,7 +37,7 @@ pub trait WebSocketServer: Server {
     //      rust-http needs some changes in order to avoid this duplication
     fn ws_serve_forever(self) {
         let config = self.get_config();
-        debug!("About to bind to {:?}", config.bind_address);
+        debug!("About to bind to {}", config.bind_address);
         let mut acceptor = match TcpListener::bind(config.bind_address.ip.to_string().as_slice(), config.bind_address.port).listen() {
             Err(err) => {
                 error!("bind or listen failed :-(: {}", err);
@@ -49,7 +49,7 @@ pub trait WebSocketServer: Server {
         loop {
             let stream = match acceptor.accept() {
                 Err(error) => {
-                    debug!("accept failed: {:?}", error);
+                    debug!("accept failed: {}", error);
                     // Question: is this the correct thing to do? We should probably be more
                     // intelligent, for there are some accept failures that are likely to be
                     // permanent, such that continuing would be a very bad idea, such as
@@ -62,7 +62,7 @@ pub trait WebSocketServer: Server {
             let child_self = self.clone();
             spawn(proc() {
                 let mut stream = BufferedStream::new(stream);
-                debug!("accepted connection, got {:?}", stream);
+                debug!("accepted connection");
 
                 let mut successful_handshake = false;
                 loop {  // A keep-alive loop, condition at end
@@ -140,7 +140,7 @@ pub trait WebSocketServer: Server {
         // read task, effectively the parent of the write task
         loop {
             let message = Message::load(&mut stream).unwrap(); // fails the task if there's an error.
-            println!("message: {:?}", message);
+            // println!("message: {}", message);
 
             match message.opcode {
                 CloseOp => {
