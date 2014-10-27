@@ -1,3 +1,5 @@
+#[phase(plugin, link)] extern crate log;
+
 use std::io::IoResult;
 use rust_crypto::sha1::Sha1;
 use rust_crypto::digest::Digest;
