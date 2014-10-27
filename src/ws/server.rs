@@ -2,7 +2,7 @@ use std::io::IoResult;
 use rust_crypto::sha1::Sha1;
 use rust_crypto::digest::Digest;
 use serialize::base64::{ToBase64, STANDARD};
-use std::ascii::StrAsciiExt;
+use std::ascii::AsciiExt;
 use time;
 
 use std::io::{Listener, Acceptor};
