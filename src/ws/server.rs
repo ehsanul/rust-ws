@@ -1,8 +1,10 @@
+#[phase(plugin, link)] extern crate log;
+
 use std::io::IoResult;
 use rust_crypto::sha1::Sha1;
 use rust_crypto::digest::Digest;
 use serialize::base64::{ToBase64, STANDARD};
-use std::ascii::StrAsciiExt;
+use std::ascii::AsciiExt;
 use time;
 
 use std::io::{Listener, Acceptor};
@@ -35,7 +37,7 @@ pub trait WebSocketServer: Server {
     //      rust-http needs some changes in order to avoid this duplication
     fn ws_serve_forever(self) {
         let config = self.get_config();
-        debug!("About to bind to {:?}", config.bind_address);
+        debug!("About to bind to {}", config.bind_address);
         let mut acceptor = match TcpListener::bind(config.bind_address.ip.to_string().as_slice(), config.bind_address.port).listen() {
             Err(err) => {
                 error!("bind or listen failed :-(: {}", err);
@@ -47,7 +49,7 @@ pub trait WebSocketServer: Server {
         loop {
             let stream = match acceptor.accept() {
                 Err(error) => {
-                    debug!("accept failed: {:?}", error);
+                    debug!("accept failed: {}", error);
                     // Question: is this the correct thing to do? We should probably be more
                     // intelligent, for there are some accept failures that are likely to be
                     // permanent, such that continuing would be a very bad idea, such as
@@ -60,7 +62,7 @@ pub trait WebSocketServer: Server {
             let child_self = self.clone();
             spawn(proc() {
                 let mut stream = BufferedStream::new(stream);
-                debug!("accepted connection, got {:?}", stream);
+                debug!("accepted connection");
 
                 let mut successful_handshake = false;
                 loop {  // A keep-alive loop, condition at end
@@ -138,7 +140,7 @@ pub trait WebSocketServer: Server {
         // read task, effectively the parent of the write task
         loop {
             let message = Message::load(&mut stream).unwrap(); // fails the task if there's an error.
-            println!("message: {:?}", message);
+            // println!("message: {}", message);
 
             match message.opcode {
                 CloseOp => {
@@ -184,7 +186,7 @@ pub trait WebSocketServer: Server {
 
         let mut sh = Sha1::new();
         let mut out = [0u8, ..20];
-        sh.input_str(String::from_str(sec_websocket_key).append(WEBSOCKET_SALT).as_slice());
+        sh.input_str((String::from_str(sec_websocket_key) + WEBSOCKET_SALT).as_slice());
         sh.result(out);
         return out.to_base64(STANDARD);
     }
