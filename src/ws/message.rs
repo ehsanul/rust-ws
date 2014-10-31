@@ -41,7 +41,7 @@ impl Message {
         let rsv3   = buf1[0] & 0b0001_0000;
         */
         let opcode = buf1[0] & 0b0000_1111;
-        let opcode: Opcode = num::from_u8(opcode).unwrap(); // all valid RFC 6455 Opcodes specified, invalid ones will fail!()
+        let opcode: Opcode = num::from_u8(opcode).unwrap(); // all valid RFC 6455 Opcodes specified, invalid ones will panic!()
 
         //let mask    = buf1[1] & 0b1000_0000; TODO use this to determine whether to unmask or not
         let pay_len = buf1[1] & 0b0111_1111;
@@ -55,7 +55,7 @@ impl Message {
 
         // payloads larger than 125 bytes are not allowed for control frames
         match opcode {
-            CloseOp | PingOp if payload_length > 125 => fail!(),
+            CloseOp | PingOp if payload_length > 125 => panic!(),
             _ => ()
         }
 

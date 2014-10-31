@@ -227,7 +227,7 @@ pub trait WebSocketServer: Server {
                         let sec_websocket_accept = self.sec_websocket_accept((*val).as_slice());
                         w.headers.insert(ExtensionHeader(String::from_str("Sec-WebSocket-Accept"), sec_websocket_accept));
                     },
-                    None => fail!()
+                    None => panic!()
                 }
 
                 return true; // successful_handshake
