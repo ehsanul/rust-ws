@@ -20,7 +20,9 @@ use http::headers::response::ExtensionHeader;
 use http::headers::connection::Token;
 use http::method::Get;
 
-use message::{Message, PingOp, PongOp, CloseOp};
+pub use message::Payload::{Text, Binary, Empty};
+pub use message::Opcode::{ContinuationOp, TextOp, BinaryOp, CloseOp, PingOp, PongOp};
+use message::{Payload, Opcode, Message};
 
 static WEBSOCKET_SALT: &'static str = "258EAFA5-E914-47DA-95CA-C5AB0DC85B11";
 

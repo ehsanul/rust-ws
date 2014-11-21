@@ -2,6 +2,9 @@ use std::io::net::tcp::TcpStream;
 use std::io::IoResult;
 use std::num;
 
+pub use self::Payload::{Text, Binary, Empty};
+pub use self::Opcode::{ContinuationOp, TextOp, BinaryOp, CloseOp, PingOp, PongOp};
+
 #[deriving(Clone)]
 pub enum Payload {
     Text(String),
@@ -31,7 +34,7 @@ impl Message {
     pub fn load(stream: &mut TcpStream) -> IoResult<Box<Message>> {
         let vec1 = try!(stream.read_exact(2));
         let buf1 = vec1.as_slice();
-        println!("buf1: {:t} {:t}", buf1[0], buf1[1]);
+        println!("buf1: {:#} {:#}", buf1[0], buf1[1]);
 
         //let fin    = buf1[0] & 0b1000_0000; // TODO check this, required for handling fragmented messages
 
@@ -61,7 +64,7 @@ impl Message {
 
         let masking_key_vec = try!(stream.read_exact(4));
         let masking_key_buf = masking_key_vec.as_slice();
-        println!("masking_key_buf: {:t} {:t} {:t} {:t}", masking_key_buf[0], masking_key_buf[1], masking_key_buf[2], masking_key_buf[3]);
+        println!("masking_key_buf: {:#} {:#} {:#} {:#}", masking_key_buf[0], masking_key_buf[1], masking_key_buf[2], masking_key_buf[3]);
 
         let masked_payload_buf = try!(stream.read_exact(payload_length as uint));
 
