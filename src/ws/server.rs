@@ -189,7 +189,7 @@ pub trait WebSocketServer: Server {
         let mut sh = Sha1::new();
         let mut out = [0u8, ..20];
         sh.input_str((String::from_str(sec_websocket_key) + WEBSOCKET_SALT).as_slice());
-        sh.result(out);
+        sh.result(out.as_mut_slice());
         return out.to_base64(STANDARD);
     }
 
