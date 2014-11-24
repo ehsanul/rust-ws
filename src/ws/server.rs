@@ -22,7 +22,7 @@ use http::method::Get;
 
 pub use message::Payload::{Text, Binary, Empty};
 pub use message::Opcode::{ContinuationOp, TextOp, BinaryOp, CloseOp, PingOp, PongOp};
-use message::{Payload, Opcode, Message};
+use message::Message;
 
 static WEBSOCKET_SALT: &'static str = "258EAFA5-E914-47DA-95CA-C5AB0DC85B11";
 
@@ -113,7 +113,7 @@ pub trait WebSocketServer: Server {
                 }
 
                 if successful_handshake {
-                    child_self.serve_websockets(stream);
+                    child_self.serve_websockets(stream).unwrap();
                 }
             });
         }
@@ -224,7 +224,7 @@ pub trait WebSocketServer: Server {
                 }
 
                 // NOTE: think this is actually Sec-WebSocket-Key (capital Web[S]ocket), but rust-http normalizes header names
-                match r.headers.extensions.find(&String::from_str("Sec-Websocket-Key")) {
+                match r.headers.extensions.get(&String::from_str("Sec-Websocket-Key")) {
                     Some(val) => {
                         let sec_websocket_accept = self.sec_websocket_accept((*val).as_slice());
                         w.headers.insert(ExtensionHeader(String::from_str("Sec-WebSocket-Accept"), sec_websocket_accept));
