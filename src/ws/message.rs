@@ -34,7 +34,6 @@ impl Message {
     pub fn load(stream: &mut TcpStream) -> IoResult<Box<Message>> {
         let vec1 = try!(stream.read_exact(2));
         let buf1 = vec1.as_slice();
-        println!("buf1: {:#} {:#}", buf1[0], buf1[1]);
 
         //let fin    = buf1[0] & 0b1000_0000; // TODO check this, required for handling fragmented messages
 
@@ -54,7 +53,6 @@ impl Message {
             126 => try!(stream.read_be_u16()) as u64, // 2 bytes in network byte order
             _   => pay_len as u64
         };
-        println!("payload_length: {}", payload_length);
 
         // payloads larger than 125 bytes are not allowed for control frames
         match opcode {
@@ -62,17 +60,14 @@ impl Message {
             _ => ()
         }
 
-        let masking_key_vec = try!(stream.read_exact(4));
-        let masking_key_buf = masking_key_vec.as_slice();
-        println!("masking_key_buf: {:#} {:#} {:#} {:#}", masking_key_buf[0], masking_key_buf[1], masking_key_buf[2], masking_key_buf[3]);
+        let masking_key = try!(stream.read_exact(4));
+        let mut masked_payload_buf = try!(stream.read_exact(payload_length as uint));
 
-        let masked_payload_buf = try!(stream.read_exact(payload_length as uint));
-
-        // unmask the payload
-        let mut payload_buf = vec!(); // instead of a mutable vector, a map_with_index would be nice. or maybe just mutate the existing buffer in place.
-        for (i, &octet) in masked_payload_buf.iter().enumerate() {
-            payload_buf.push(octet ^ masking_key_buf[i % 4]);
+        // unmask the payload in-place
+        for (i, octet) in masked_payload_buf.iter_mut().enumerate() {
+            *octet = *octet ^ masking_key[i % 4];
         }
+        let payload_buf = masked_payload_buf;
 
         let payload: Payload = match opcode {
             TextOp   => Text(String::from_utf8(payload_buf).unwrap()), // unsafe unwrap? failures during autobahn
