@@ -1,5 +1,6 @@
 use std::io::net::tcp::TcpStream;
-use std::io::IoResult;
+use std::io::{IoResult, IoError};
+use std::io::IoErrorKind::InvalidInput;
 use std::num;
 
 pub use self::Payload::{Text, Binary, Empty};
@@ -35,13 +36,17 @@ impl Message {
         let vec1 = try!(stream.read_exact(2));
         let buf1 = vec1.as_slice();
 
-        //let fin    = buf1[0] & 0b1000_0000; // TODO check this, required for handling fragmented messages
+        //let fin = buf1[0] >> 7; // TODO check this, required for handling fragmented messages
 
-        /* we ignore these, as they are only used if a websocket protocol has been enabled, and optionally at that
-        let rsv1   = buf1[0] & 0b0100_0000;
-        let rsv2   = buf1[0] & 0b0010_0000;
-        let rsv3   = buf1[0] & 0b0001_0000;
-        */
+        let rsv = (buf1[0] >> 4) & 0b0111;
+        if rsv != 0 {
+            return Err(IoError {
+                kind: InvalidInput,
+                desc: "Only RSV=0 allowed, no extension has been negotiated.",
+                detail: None
+            });
+        }
+
         let opcode = buf1[0] & 0b0000_1111;
         let opcode: Opcode = num::from_u8(opcode).unwrap(); // all valid RFC 6455 Opcodes specified, invalid ones will panic!()
 
