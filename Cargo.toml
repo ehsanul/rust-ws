@@ -1,8 +1,11 @@
 [package]
 
 name = "rust-ws"
+description = "A WebSocket library for Rust."
 version = "0.1.0"
 authors = [ "ehsanul@ehsanul.com" ]
+license = "MIT"
+repository = "https://github.com/ehsanul/rust-ws"
 
 [lib]
 
