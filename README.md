@@ -14,11 +14,25 @@ dependancies.
     git clone git@github.com:ehsanul/rust-ws.git
     cd rust-ws
     cargo build
-    cargo test # builds examples in test/
+    cargo test # builds examples in target/examples
 
 ## Examples
 
 See the echo server example under the `examples/` directory for basic usage.
+
+## Running The Autobahn Test Suite
+
+To run the Autobahn test suite, first install it using [these
+instructions](http://autobahn.ws/testsuite/installation.html). Then run the
+example echo server (it uses port 8001):
+
+    ./target/examples/echo-server
+
+Then, in another terminal, run the tests like so:
+
+    wstest --mode=fuzzingclient --spec=fuzzingclient.json
+
+Test results will be generated in a sub-directory called `reports`.
 
 ## Todo
 
@@ -41,10 +55,8 @@ So much to do.
 
 ### Missing Support
 
-- Closing handshake
-- Ping/pong frames
 - Fragmented messages
-- Pass http://autobahn.ws/testsuite/
+- Pass 100% of http://autobahn.ws/testsuite/
 - TLS
 - ws extensions, like deflate etc that chrome/ff use
   - Chrome has
