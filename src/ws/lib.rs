@@ -9,6 +9,5 @@ extern crate serialize;
 extern crate http;
 extern crate "rust-crypto" as rust_crypto;
 
-
 pub mod server;
 pub mod message;

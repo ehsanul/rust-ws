@@ -6,14 +6,14 @@ use std::num;
 pub use self::Payload::{Text, Binary, Empty};
 pub use self::Opcode::{ContinuationOp, TextOp, BinaryOp, CloseOp, PingOp, PongOp};
 
-#[deriving(Clone)]
+#[deriving(Clone, Show)]
 pub enum Payload {
     Text(String),
     Binary(Vec<u8>),
     Empty
 }
 
-#[deriving(Clone, FromPrimitive)]
+#[deriving(Clone, FromPrimitive, Show)]
 pub enum Opcode {
     ContinuationOp = 0x0,
     TextOp         = 0x1,
@@ -25,7 +25,7 @@ pub enum Opcode {
 
 // this struct will eventually encapsulate data framing, opcodes, ws extensions, masks etc
 // right now, only single frames, with a text payload are supported
-#[deriving(Clone)]
+#[deriving(Clone, Show)]
 pub struct Message {
     pub payload: Payload,
     pub opcode: Opcode
@@ -58,6 +58,7 @@ impl Message {
             126 => try!(stream.read_be_u16()) as u64, // 2 bytes in network byte order
             _   => pay_len as u64
         };
+        debug!("payload_length: {}", payload_length);
 
         // payloads larger than 125 bytes are not allowed for control frames
         match opcode {

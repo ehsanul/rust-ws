@@ -1,5 +1,3 @@
-#[phase(plugin, link)] extern crate log;
-
 use std::io::IoResult;
 use rust_crypto::sha1::Sha1;
 use rust_crypto::digest::Digest;
@@ -142,7 +140,7 @@ pub trait WebSocketServer: Server {
         // read task, effectively the parent of the write task
         loop {
             let message = Message::load(&mut stream).unwrap(); // fails the task if there's an error.
-            // println!("message: {}", message);
+            debug!("message: {}", message);
 
             match message.opcode {
                 CloseOp => {
