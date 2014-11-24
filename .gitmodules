@@ -1,6 +1,0 @@
-[submodule "lib/rust-http"]
-	path = lib/rust-http
-	url = git@github.com:ehsanul/rust-http.git
-[submodule "lib/rust-crypto"]
-	path = lib/rust-crypto
-	url = git@github.com:DaGenix/rust-crypto.git
