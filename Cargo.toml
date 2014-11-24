@@ -9,6 +9,10 @@ authors = [ "ehsanul@ehsanul.com" ]
 name = "ws"
 path = "src/ws/lib.rs"
 
+[dependencies.time]
+
+git = "https://github.com/rust-lang/time"
+
 [dependencies.http]
 
 git = "https://github.com/chris-morgan/rust-http"
