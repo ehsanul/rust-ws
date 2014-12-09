@@ -14,9 +14,9 @@ use std::io::net::tcp::TcpStream;
 use http::server::{Server, Request, ResponseWriter};
 use http::status::SwitchingProtocols;
 use http::headers::HeaderEnum;
-use http::headers::response::ExtensionHeader;
-use http::headers::connection::Token;
-use http::method::Get;
+use http::headers::response::Header::ExtensionHeader;
+use http::headers::connection::Connection::Token;
+use http::method::Method::Get;
 
 pub use message::Payload::{Text, Binary, Empty};
 pub use message::Opcode::{ContinuationOp, TextOp, BinaryOp, CloseOp, PingOp, PongOp};
