@@ -1,5 +1,4 @@
 [package]
-
 name = "rust-ws"
 description = "A WebSocket library for Rust."
 version = "0.1.0"
@@ -8,18 +7,13 @@ license = "MIT"
 repository = "https://github.com/ehsanul/rust-ws"
 
 [lib]
-
 name = "ws"
 path = "src/ws/lib.rs"
 
-[dependencies.time]
-
-git = "https://github.com/rust-lang/time"
+[dependencies]
+log = "*"
+time = "*"
+rust-crypto = "*"
 
 [dependencies.http]
-
 git = "https://github.com/chris-morgan/rust-http"
-
-[dependencies.rust-crypto]
-
-git = "https://github.com/DaGenix/rust-crypto"

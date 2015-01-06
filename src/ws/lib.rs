@@ -7,7 +7,7 @@
 extern crate time;
 extern crate serialize;
 extern crate http;
-extern crate "rust-crypto" as rust_crypto;
+extern crate crypto;
 
 pub mod server;
 pub mod message;

@@ -6,14 +6,14 @@ use std::num;
 pub use self::Payload::{Text, Binary, Empty};
 pub use self::Opcode::{ContinuationOp, TextOp, BinaryOp, CloseOp, PingOp, PongOp};
 
-#[deriving(Clone, Show)]
+#[derive(Clone, Show)]
 pub enum Payload {
     Text(String),
     Binary(Vec<u8>),
     Empty
 }
 
-#[deriving(Clone, FromPrimitive, Show)]
+#[derive(Clone, FromPrimitive, Show)]
 pub enum Opcode {
     ContinuationOp = 0x0,
     TextOp         = 0x1,
@@ -23,9 +23,11 @@ pub enum Opcode {
     PongOp         = 0xA,
 }
 
+impl Copy for Opcode { }
+
 // this struct will eventually encapsulate data framing, opcodes, ws extensions, masks etc
 // right now, only single frames, with a text payload are supported
-#[deriving(Clone, Show)]
+#[derive(Clone, Show)]
 pub struct Message {
     pub payload: Payload,
     pub opcode: Opcode

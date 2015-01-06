@@ -1,15 +1,17 @@
 use std::io::IoResult;
-use rust_crypto::sha1::Sha1;
-use rust_crypto::digest::Digest;
+use crypto::sha1::Sha1;
+use crypto::digest::Digest;
 use serialize::base64::{ToBase64, STANDARD};
 use std::ascii::AsciiExt;
 use time;
 
 use std::io::{Listener, Acceptor};
 use std::io::net::tcp::TcpListener;
-
-use http::buffer::BufferedStream;
 use std::io::net::tcp::TcpStream;
+use http::buffer::BufferedStream;
+
+use std::thread::Thread;
+use std::sync::mpsc::{channel, Sender, Receiver};
 
 use http::server::{Server, Request, ResponseWriter};
 use http::status::SwitchingProtocols;
@@ -60,7 +62,7 @@ pub trait WebSocketServer: Server {
                 Ok(socket) => socket,
             };
             let child_self = self.clone();
-            spawn(proc() {
+            Thread::spawn(move || {
                 let mut stream = BufferedStream::new(stream);
                 debug!("accepted connection");
 
@@ -113,7 +115,7 @@ pub trait WebSocketServer: Server {
                 if successful_handshake {
                     child_self.serve_websockets(stream).unwrap();
                 }
-            });
+            }).detach();
         }
     }
 
@@ -126,16 +128,16 @@ pub trait WebSocketServer: Server {
         self.handle_ws_connect(in_receiver, out_sender);
 
         // write task
-        spawn(proc() {
+        Thread::spawn(move || {
             // ugh: https://github.com/mozilla/rust/blob/3dbc1c34e694f38daeef741cfffc558606443c15/src/test/run-pass/kindck-implicit-close-over-mut-var.rs#L40-L44
             // work to fix this is ongoing here: https://github.com/mozilla/rust/issues/11958
             let mut write_stream = write_stream;
 
             loop {
-                let message = out_receiver.recv();
+                let message = out_receiver.recv().unwrap();
                 message.send(&mut write_stream).unwrap(); // fails this task in case of an error; FIXME make sure this fails the read (parent) task
             }
-        });
+        }).detach();
 
         // read task, effectively the parent of the write task
         loop {
@@ -157,7 +159,7 @@ pub trait WebSocketServer: Server {
                     try!(pong.send(&mut stream));
                 },
                 PongOp => (),
-                _ => in_sender.send(message)
+                _ => in_sender.send(message).unwrap()
             }
         }
 
@@ -185,7 +187,7 @@ pub trait WebSocketServer: Server {
         // handshake.
 
         let mut sh = Sha1::new();
-        let mut out = [0u8, ..20];
+        let mut out = [0u8; 20];
         sh.input_str((String::from_str(sec_websocket_key) + WEBSOCKET_SALT).as_slice());
         sh.result(out.as_mut_slice());
         return out.to_base64(STANDARD);

@@ -4,6 +4,9 @@ extern crate time;
 extern crate http;
 extern crate ws;
 
+use std::thread::Thread;
+use std::sync::mpsc::{channel, Sender, Receiver};
+
 use http::server::{Config, Server, Request, ResponseWriter};
 use std::io::net::ip::{SocketAddr, Ipv4Addr};
 use http::headers::content_type::MediaType;
@@ -35,9 +38,9 @@ impl Server for EchoServer {
 
 impl WebSocketServer for EchoServer {
     fn handle_ws_connect(&self, receiver: Receiver<Box<Message>>, sender: Sender<Box<Message>>) {
-        spawn(proc() {
+        Thread::spawn(move || {
             loop {
-                let message = receiver.recv();
+                let message = receiver.recv().unwrap();
 
                 let (payload, opcode) = match message.payload {
                     Text(p)   => (Text(p), TextOp),
@@ -48,9 +51,9 @@ impl WebSocketServer for EchoServer {
                     payload: payload,
                     opcode: opcode,
                 };
-                sender.send(echo_message);
+                sender.send(echo_message).unwrap();
             }
-        });
+        }).detach();
     }
 }
 
